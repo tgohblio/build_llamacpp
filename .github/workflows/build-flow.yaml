@@ -55,7 +55,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          repository: https://github.com/ggml-org/llama.cpp.git
+          repository: ggml-org/llama.cpp
           ref: master
           path: llama_repo
 
