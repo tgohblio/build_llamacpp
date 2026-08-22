@@ -1,0 +1,126 @@
+name: Build llama (CUDA 13.0)
+
+on:
+  workflow_dispatch:
+    inputs:
+      cuda_architectures:
+        description: CUDA architectures e.g. 80;80-virtual;80-real
+        required: false
+        default: 80-virtual;86-real;89-real;90-real;100-real;120a-real
+
+  push:
+    branches: [master, main]
+    # only runs when the files below that actually affect the CUDA build change
+    paths:
+      - '.github/workflows/build-flow.yaml'
+      - '**/CMakeLists.txt'
+      - '**/*.h'
+      - '**/*.hpp'
+      - '**/*.c'
+      - '**/*.cpp'
+      - '**/*.cu'
+      - '**/*.cuh'
+      - 'ggml/src/ggml-cuda/**'
+
+  pull_request:
+    # only runs when the files below that actually affect the CUDA build change
+    paths:
+      - '.github/workflows/build-flow.yaml'
+      - 'ggml/src/ggml-cuda/**'
+      - '**/CMakeLists.txt'
+
+# If multiple commits are pushed to a PR in quick succession, only the latest workflow run will execute.
+# The previous two runs get cancelled automatically, saving CI resources and reducing feedback time.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
+  GGML_NLOOP: 3
+  GGML_N_THREADS: 1
+  LLAMA_ARG_LOG_COLORS: 1
+  LLAMA_ARG_LOG_PREFIX: 1
+  LLAMA_ARG_LOG_TIMESTAMPS: 1
+  OUT_DIR: artifacts
+
+jobs:
+  build-cuda:
+    name: Build llama-server
+    runs-on: ubuntu-24.04
+    # Use the exact CUDA 13.0.2 devel image you wanted
+    container: nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          repository: https://github.com/ggml-org/llama.cpp.git
+          ref: master
+          path: llama_repo
+
+      - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            cmake \
+            ninja-build \
+            build-essential \
+            git \
+            libssl-dev \
+            libcurl4-openssl-dev \
+            ccache \
+            curl \
+            ca-certificates \
+            file \
+            tar
+          rm -rf /var/lib/apt/lists/*
+
+      - name: Setup compiler cache
+        uses: ggml-org/ccache-action@v1.2.21
+        with:
+          key: cuda13-ubuntu24.04-${{ env.CUDA_ARCHITECTURES }}
+          evict-old-files: 1d
+          save: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
+
+      - name: Build static app with CMake
+        run: |
+          echo "Building with CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"
+          cd llama_repo
+
+          cmake -S . -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DGGML_NATIVE=OFF \
+            -DGGML_CUDA=ON \
+            -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
+            -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_CURL=ON \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLLAMA_BUILD_TESTS=OFF \
+            -DLLAMA_BUILD_EXAMPLES=OFF \
+            -DLLAMA_BUILD_TOOLS=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-shlib-undefined"
+
+          cmake --build build --config Release -j"$(nproc)"
+
+      - name: Prepare artifacts
+        id: artifact
+        run: |
+          set -euo pipefail
+
+          mkdir -p "${OUT_DIR}"
+
+          # Copy the important binaries
+          cp -a llama_repo/build/bin/llama-server "${OUT_DIR}/"
+          cp -a llama_repo/build/bin/llama-cli    "${OUT_DIR}/"
+          cp -a llama_repo/build/bin/llama-quantize "${OUT_DIR}/"
+
+          chmod +x "${OUT_DIR}/"*
+          strip "${OUT_DIR}/"* || true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          path: ${{ env.OUT_DIR }}
