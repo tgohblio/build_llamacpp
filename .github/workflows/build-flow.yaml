@@ -1,33 +1,30 @@
-name: Build llama (CUDA 13.0)
+name: Build llama (Runpod self-hosted CPU)
 
 on:
   workflow_dispatch:
     inputs:
       cuda_architectures:
-        description: CUDA architectures e.g. 80;80-virtual;80-real
+        description: CUDA architectures
         required: false
-        default: 80-virtual;86-real;89-real;90-real;100-real;120a-real
+        default: 80-virtual;86-real;89-real;90-real;120a-real
+      runpod_disk_gb:
+        description: Container disk size (GB) for the Runpod pod
+        required: false
+        default: '20'
+      runpod_image:
+        description: Container image for the Runpod pod (must contain the GH runner + CUDA toolkit)
+        required: false
+        default: 'dockerdl2018/llama-runner:cuda13'
 
   push:
     branches: [master, main]
-    # only runs when the files below that actually affect the CUDA build change
+    # only runs when the files below that actually affect the build change
     paths:
       - '.github/workflows/build-flow.yaml'
-      - '**/CMakeLists.txt'
-      - '**/*.h'
-      - '**/*.hpp'
-      - '**/*.c'
-      - '**/*.cpp'
-      - '**/*.cu'
-      - '**/*.cuh'
-      - 'ggml/src/ggml-cuda/**'
-
   pull_request:
-    # only runs when the files below that actually affect the CUDA build change
+    # only runs when the files below that actually affect the build change
     paths:
       - '.github/workflows/build-flow.yaml'
-      - 'ggml/src/ggml-cuda/**'
-      - '**/CMakeLists.txt'
 
 # If multiple commits are pushed to a PR in quick succession, only the latest workflow run will execute.
 # The previous two runs get cancelled automatically, saving CI resources and reducing feedback time.
@@ -36,20 +33,85 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
-  GGML_NLOOP: 3
-  GGML_N_THREADS: 1
-  LLAMA_ARG_LOG_COLORS: 1
-  LLAMA_ARG_LOG_PREFIX: 1
-  LLAMA_ARG_LOG_TIMESTAMPS: 1
-  OUT_DIR: artifacts
+  CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
+  # --- Runpod pod configuration ---
+  POD_COMPUTE_TYPE: CPU
+  POD_DISK_GB: ${{ github.event.inputs.runpod_disk_gb || '60' }}
+  POD_CONTAINER_IMAGE: ${{ github.event.inputs.runpod_image || 'dockerdl2018/llama-runner:cuda13' }}
+  POD_CPU_CORES: ${{ github.event.inputs.runpod_cpu_cores || '8' }} # vcpu cores
+  POD_RAM: ${{ github.event.inputs.runpod_system_ram || '20' }}
+  POD_COST: ${{ github.event.inputs.runpod_cost || '1' }} # max $/hr. If not specified, finds the lowest cost available 
 
 jobs:
-  build-cuda:
-    name: Build llama-server
+  # -------------------------------------------------------------------------
+  # 1) Provision: create the Runpod CPU pod and wait for the runner to register
+  # -------------------------------------------------------------------------
+  provision:
+    name: Provision Runpod CPU pod
     runs-on: ubuntu-24.04
-    # Use the exact CUDA 13.0.2 devel image you wanted
-    container: nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
+    outputs:
+      pod_id: ${{ steps.create.outputs.pod_id }}
+    steps:
+      - name: Install runpodctl
+        run: |
+          curl -sSL https://cli.runpod.net | bash
+          echo "$HOME/.runpodctl/bin" >> "$GITHUB_PATH"
+
+      - name: Get Registration Token & Create Pod
+        id: create
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: |
+          set -euo pipefail
+          RUNNER_TOKEN="$(gh api -X POST /repos/${{ github.repository }}/actions/runners/registration-token --jq .token)"
+          POD_NAME="gh-runner-${{ github.run_id }}"
+
+          # Env passed to the runner container image. EPHEMERAL makes the
+          # runner exit after a single job (clean teardown).
+          ENV_JSON="$(jq -n \
+            --arg url "https://github.com/${{ github.repository }}" \
+            --arg tok "$RUNNER_TOKEN" \
+            --arg name "$POD_NAME" \
+            '{REPO_URL:$url, RUNNER_TOKEN:$tok, RUNNER_NAME:$name, LABELS:"runpod", EPHEMERAL:"true"}')"
+
+          # create auto-starts the pod (Step 2 of the requested lifecycle).
+          OUT="$(runpodctl pod create \
+            --compute-type "$POD_COMPUTE_TYPE" \
+            --containerDiskSize "$POD_DISK_GB" \
+            --image "$POD_CONTAINER_IMAGE" \
+            --name "$POD_NAME" \
+            --vcpu "$POD_CPU_CORES" \
+            --mem "$POD_RAM" \
+            --cost "$POD_COST" \
+            --env "$ENV_JSON" \
+            -o json)"
+
+          POD_ID="$(echo "$OUT" | jq -r .id)"
+          echo "pod_id=$POD_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Wait for Runner Online
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          NAME="gh-runner-${{ github.run_id }}"
+          for i in $(seq 1 30); do
+            STATUS="$(gh api /repos/${{ github.repository }}/actions/runners --jq ".runners[] | select(.name==\"$NAME\") | .status" 2>/dev/null || true)"
+            if [ "$STATUS" = "online" ]; then exit 0; fi
+            sleep 10
+          done
+          echo "::error::Self-hosted runner did not come online in time." >&2
+          exit 1
+
+  # -------------------------------------------------------------------------
+  # 2) Build: runs ON the Runpod self-hosted runner (CPU pod).
+  #    CUDA toolkit is baked into the image, so we only expose it on PATH and
+  #    make sure CMake is new enough for CUDA 13.
+  # -------------------------------------------------------------------------
+  build:
+    name: Build llama-server
+    needs: provision
+    runs-on: [self-hosted, runpod]
 
     steps:
       - name: Checkout
@@ -59,42 +121,20 @@ jobs:
           ref: v0.2.0
           path: llama_repo
 
-      - name: Install dependencies
-        env:
-          DEBIAN_FRONTEND: noninteractive
-        run: |
-          apt-get update
-          apt-get install -y --no-install-recommends \
-            cmake \
-            ninja-build \
-            build-essential \
-            git \
-            libssl-dev \
-            libcurl4-openssl-dev \
-            ccache \
-            curl \
-            ca-certificates \
-            file \
-            tar
-          rm -rf /var/lib/apt/lists/*
-
-      - name: Setup compiler cache
+      - name: Setup Ccache
         uses: ggml-org/ccache-action@v1.2.21
         with:
-          key: cuda13-ubuntu24.04-${{ env.CUDA_ARCHITECTURES }}
+          key: cuda13-ubuntu-${{ github.run_id }}
           evict-old-files: 1d
-          save: ${{ github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') }}
 
-      - name: Build static app with CMake
+      - name: Build llama.cpp
         run: |
-          echo "Building with CUDA_ARCHITECTURES=${CUDA_ARCHITECTURES}"
           cd llama_repo
-
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DGGML_NATIVE=OFF \
             -DGGML_CUDA=ON \
-            -DCMAKE_CUDA_ARCHITECTURES="${CUDA_ARCHITECTURES}" \
+            -DCMAKE_CUDA_ARCHITECTURES="${{ env.CMAKE_CUDA_ARCHITECTURES }}" \
             -DLLAMA_BUILD_SERVER=ON \
             -DLLAMA_CURL=ON \
             -DBUILD_SHARED_LIBS=OFF \
@@ -102,27 +142,31 @@ jobs:
             -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_TOOLS=OFF \
             -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-shlib-undefined"
-
           cmake --build build --config Release -j"$(nproc)"
 
-      - name: Prepare artifacts
-        id: artifact
-        run: |
-          set -euo pipefail
-
-          mkdir -p "${OUT_DIR}"
-
-          # Copy the important binaries
-          cp -a llama_repo/build/bin/llama-server "${OUT_DIR}/"
-          cp -a llama_repo/build/bin/llama-cli    "${OUT_DIR}/"
-          cp -a llama_repo/build/bin/llama-quantize "${OUT_DIR}/"
-
-          chmod +x "${OUT_DIR}/"*
-
-          # Remove debugging symbols from binaries to reduce file size
-          strip "${OUT_DIR}/"* || true
+          # Strip debug symbols directly in build output directory
+          strip build/bin/llama-server build/bin/llama-cli build/bin/llama-quantize || true
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
-          path: ${{ env.OUT_DIR }}
+          path: |
+            llama_repo/build/bin/llama-server
+            llama_repo/build/bin/llama-cli
+            llama_repo/build/bin/llama-quantize
+
+  # -------------------------------------------------------------------------
+  # 3) Teardown the pod
+  # -------------------------------------------------------------------------
+  teardown-pod:
+    name: Terminate Runpod Pod
+    needs: [provision, build]
+    if: ${{ always() && needs.provision.outputs.pod_id != '' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Terminate Pod
+        env:
+          RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
+        run: |
+          curl -sSL https://cli.runpod.net | bash
+          $HOME/.runpodctl/bin/runpodctl pod remove "${{ needs.provision.outputs.pod_id }}"
