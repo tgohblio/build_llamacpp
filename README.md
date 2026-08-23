@@ -3,13 +3,12 @@ Build a custom llamacpp (server and cli) using Github Runner
 
 ## What This Workflow Does
 
-A GitHub-hosted runner (`ubuntu-24.04`) calls the Runpod REST v2 API to:
+A GitHub-hosted controller (`ubuntu-24.04`) calls the Runpod API to:
 
-1. Create a CPU-only pod with 8 vCPUs, 16 GB RAM, an 80 GB container disk,
-   and SSH exposed on `22/tcp`.
+1. Create the cheapest CPU-only pod with a configurable container disk.
 2. Boot it with a self-hosted GitHub Actions runner. Creating the pod starts it automatically.
 3. Run the build on that pod with `runs-on: [self-hosted, runpod]`.
-4. Terminate the pod once the artifacts are uploaded.
+4. Pause the pod with `runpodctl pod stop` once the artifacts are uploaded.
 
 ### CUDA-Enabled Build on a CPU Instance
 
@@ -38,12 +37,15 @@ image.
 ## Prerequisites
 
 - Set `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables**.
-	The workflow sends it as a bearer token to the Runpod REST v2 API.
+	`runpodctl` reads the API key from the environment.
+- Set `PERSONAL_ACCESS_TOKEN` in Github for read/write permissions for `gh cli` usage.
 - Allow this repository's workflows to use self-hosted runners. In **Settings >
 	Actions > General**, the self-hosted runner policy must permit repository runners.
 
 ## Resource Notes
 
-- The workflow uses the `cpu5g` CPU flavor at 8 vCPUs, which provides 16 GB RAM.
-- The CUDA development image is large, so the workflow defaults to an 80 GB
-	container disk.
+- The cheapest CPU pod (2 vCPU / approximately 4 GB RAM) may run out of memory
+	while `nvcc` compiles `llama.cpp`. If the build is killed, use a larger CPU
+	flavor and/or increase `RUNPOD_DISK_GB`.
+- The CUDA development image is large, so 20 GB is tight once the source and
+	build artifacts are added. Prefer 40-60 GB.
