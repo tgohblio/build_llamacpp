@@ -5,10 +5,10 @@
 # in, so the workflow does NOT need to "Install CUDA toolkit" at runtime.
 #
 # Build & push ONCE (replace <your-registry> with your Docker Hub / GHCR namespace):
-#   docker build -f runner.Dockerfile -t <your-registry>/llama-runner:cuda13 .
+#   docker build -f self_runner/Dockerfile -t <your-registry>/llama-runner:cuda13 .
 #   docker push <your-registry>/llama-runner:cuda13
 #
-# Then point the workflow at it via RUNPOD_CONTAINER_IMAGE
+# Then point the workflow at it via RUNPOD_DOCKER_IMAGE
 # (or the runpod_image workflow_dispatch input).
 FROM --platform=linux/amd64 nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04
 
@@ -29,7 +29,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && ./bin/installdependencies.sh
 
 COPY runner-entrypoint.sh /runner/runner-entrypoint.sh
-RUN chmod +x /runner/runner-entrypoint.sh
+RUN chmod +x /runner/runner-entrypoint.sh \
+    && useradd --uid 1001 --create-home --user-group --shell /bin/bash runner \
+    && chown -R runner:runner /runner
 
 WORKDIR /runner
+ENV HOME=/home/runner
+USER runner
 ENTRYPOINT ["/runner/runner-entrypoint.sh"]
