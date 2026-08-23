@@ -30,7 +30,7 @@ binaries require a GPU only at runtime.
 Build and push the runner image:
 
 ```sh
-docker build -f self_runner/Dockerfile -t dockerdl2018/llama-runner:cuda13 .
+docker build -f self_runner/Dockerfile -t dockerdl2018/llama-runner:cuda13 ./self_runner
 docker push dockerdl2018/llama-runner:cuda13
 ```
 
