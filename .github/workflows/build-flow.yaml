@@ -36,7 +36,7 @@ env:
   CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
   # --- Runpod pod configuration ---
   POD_COMPUTE_TYPE: CPU
-  POD_TEMPLATE_ID: ${{ github.event.inputs.runpod_template_id || 'slda1kj43p' }}
+  POD_TEMPLATE_ID: ${{ github.event.inputs.runpod_template_id || 'Ubuntu-24.04-compile' }}
 
 jobs:
   # -------------------------------------------------------------------------
