@@ -78,7 +78,7 @@ jobs:
           # create auto-starts the pod (Step 2 of the requested lifecycle).
           OUT="$(runpodctl pod create \
             --compute-type "$POD_COMPUTE_TYPE" \
-            --containerDiskSize "$POD_DISK_GB" \
+            --container-disk-in-gb "$POD_DISK_GB" \
             --image "$POD_CONTAINER_IMAGE" \
             --name "$POD_NAME" \
             --vcpu "$POD_CPU_CORES" \
