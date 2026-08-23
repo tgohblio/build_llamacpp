@@ -128,9 +128,19 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
+          set -euo pipefail
           NAME="gh-runner-${{ github.run_id }}"
           for i in $(seq 1 60); do
-            STATUS="$(gh api /repos/${{ github.repository }}/actions/runners --jq ".runners[] | select(.name==\"$NAME\") | .status" 2>/dev/null || true)"
+            if ! RUNNERS_JSON="$(gh api \
+              "/repos/${{ github.repository }}/actions/runners")"; then
+              echo "::error::Unable to query GitHub self-hosted runners." >&2
+              exit 1
+            fi
+
+            STATUS="$(jq -r --arg name "$NAME" \
+              '.runners[] | select(.name == $name) | .status' <<< "$RUNNERS_JSON")"
+            STATUS="${STATUS:-not registered}"
+            echo "Runner $NAME status: $STATUS (attempt $i/60)"
             if [ "$STATUS" = "online" ]; then exit 0; fi
             sleep 10
           done
