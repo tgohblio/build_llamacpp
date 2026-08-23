@@ -38,6 +38,7 @@ image.
 
 - Set `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables**.
 	`runpodctl` reads the API key from the environment.
+- Set `PERSONAL_ACCESS_TOKEN` in Github for read/write permissions for `gh cli` usage.
 - Allow this repository's workflows to use self-hosted runners. In **Settings >
 	Actions > General**, the self-hosted runner policy must permit repository runners.
 
