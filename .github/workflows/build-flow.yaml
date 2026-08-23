@@ -32,10 +32,6 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref && github.ref || github.run_id }}
   cancel-in-progress: true
 
-permissions:
-  actions: write
-  contents: read
-
 env:
   CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
   # --- Runpod pod configuration ---
@@ -53,6 +49,9 @@ jobs:
   provision:
     name: Provision Runpod CPU pod
     runs-on: ubuntu-24.04
+    permissions:
+      actions: write
+      contents: read
     outputs:
       pod_id: ${{ steps.create.outputs.pod_id }}
     steps:
