@@ -54,7 +54,7 @@ jobs:
     steps:
       - name: Install runpodctl
         run: |
-          curl -sSL https://cli.runpod.net | bash
+          curl -sSL https://cli.runpod.net | sudo bash
           echo "$HOME/.runpodctl/bin" >> "$GITHUB_PATH"
 
       - name: Get Registration Token & Create Pod
@@ -168,5 +168,5 @@ jobs:
         env:
           RUNPOD_API_KEY: ${{ secrets.RUNPOD_API_KEY }}
         run: |
-          curl -sSL https://cli.runpod.net | bash
+          curl -sSL https://cli.runpod.net | sudo bash
           $HOME/.runpodctl/bin/runpodctl pod remove "${{ needs.provision.outputs.pod_id }}"
