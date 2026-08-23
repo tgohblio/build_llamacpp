@@ -36,11 +36,7 @@ env:
   CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80-virtual;86-real;89-real;90-real;120a-real' }}
   # --- Runpod pod configuration ---
   POD_COMPUTE_TYPE: CPU
-  POD_DISK_GB: ${{ github.event.inputs.runpod_disk_gb || '60' }}
-  POD_CONTAINER_IMAGE: ${{ github.event.inputs.runpod_image || 'dockerdl2018/llama-runner:cuda13' }}
-  POD_CPU_CORES: ${{ github.event.inputs.runpod_cpu_cores || '8' }} # vcpu cores
-  POD_RAM: ${{ github.event.inputs.runpod_system_ram || '20' }}
-  POD_COST: ${{ github.event.inputs.runpod_cost || '1' }} # max $/hr. If not specified, finds the lowest cost available 
+  POD_TEMPLATE_ID: ${{ github.event.inputs.runpod_template_id || 'slda1kj43p' }}
 
 jobs:
   # -------------------------------------------------------------------------
@@ -77,13 +73,9 @@ jobs:
 
           # create auto-starts the pod (Step 2 of the requested lifecycle).
           OUT="$(runpodctl pod create \
+            --template-id "$POD_TEMPLATE_ID" \
             --compute-type "$POD_COMPUTE_TYPE" \
-            --container-disk-in-gb "$POD_DISK_GB" \
-            --image "$POD_CONTAINER_IMAGE" \
             --name "$POD_NAME" \
-            --vcpu "$POD_CPU_CORES" \
-            --mem "$POD_RAM" \
-            --cost "$POD_COST" \
             --env "$ENV_JSON" \
             -o json)"
 
