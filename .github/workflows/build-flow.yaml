@@ -129,12 +129,12 @@ jobs:
           GH_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         run: |
           NAME="gh-runner-${{ github.run_id }}"
-          for i in $(seq 1 30); do
+          for i in $(seq 1 60); do
             STATUS="$(gh api /repos/${{ github.repository }}/actions/runners --jq ".runners[] | select(.name==\"$NAME\") | .status" 2>/dev/null || true)"
             if [ "$STATUS" = "online" ]; then exit 0; fi
             sleep 10
           done
-          echo "::error::Self-hosted runner did not come online in time." >&2
+          echo "::error::Self-hosted runner did not come online within 10 minutes." >&2
           exit 1
 
   # -------------------------------------------------------------------------
