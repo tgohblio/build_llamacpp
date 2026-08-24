@@ -6,7 +6,7 @@ on:
       cuda_architectures:
         description: CUDA architectures
         required: false
-        default: 80-virtual;86-real;89-real;90-real;120a-real
+        default: 80;86;89;90;120a
       runpod_image:
         description: Container image for the Runpod pod (must contain the GH runner + CUDA toolkit)
         required: false
@@ -185,7 +185,7 @@ jobs:
             -DLLAMA_BUILD_EXAMPLES=OFF \
             -DLLAMA_BUILD_TOOLS=OFF \
             -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-shlib-undefined"
-          cmake --build build --config Release
+          cmake --build build --config Release -j"$(nproc)"
 
           # Strip debug symbols directly in build output directory
           strip build/bin/llama-server build/bin/llama-cli build/bin/llama-quantize || true
