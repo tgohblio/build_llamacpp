@@ -13,7 +13,7 @@ on:
         default: 'dockerdl2018/llama-runner:cuda13'
 
   push:
-    branches: [master, main]
+    branches: main
     # only runs when the files below that actually affect the build change
     paths:
       - '.github/workflows/build-flow.yaml'
