@@ -1,4 +1,4 @@
-name: Build llama (Runpod self-hosted CPU)
+name: Build llama (Runpod)
 
 on:
   workflow_dispatch:
@@ -195,6 +195,8 @@ jobs:
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
         with:
+          name: llama_apps
+          if-no-files-found: error
           path: |
             llama_repo/build/bin/llama-server
             llama_repo/build/bin/llama-cli
