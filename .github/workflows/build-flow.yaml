@@ -180,13 +180,13 @@ jobs:
             -DGGML_CUDA=ON \
             -DCMAKE_CUDA_ARCHITECTURES="${{ env.CMAKE_CUDA_ARCHITECTURES }}" \
             -DLLAMA_BUILD_SERVER=ON \
+            -DLLAMA_BUILD_COMMON=ON \
+            -DLLAMA_BUILD_TOOLS=ON \
             -DBUILD_SHARED_LIBS=OFF \
             -DLLAMA_BUILD_TESTS=OFF \
             -DLLAMA_BUILD_EXAMPLES=OFF \
-            -DLLAMA_BUILD_TOOLS=OFF \
-            -DCMAKE_C_FLAGS="-I$(pwd)/common" \
-            -DCMAKE_CXX_FLAGS="-I$(pwd)/common" \
-            -DCMAKE_EXE_LINKER_FLAGS="-Wl,--allow-shlib-undefined"
+            -DLLAMA_BUILD_APP=OFF \
+            -DCMAKE_EXE_LINKER_FLAGS=-Wl,--allow-shlib-undefined
           cmake --build build -j"$(nproc)"
 
           # Strip debug symbols directly in build output directory
