@@ -11,16 +11,20 @@ on:
         description: Container image for the pod (contains the GH runner + CUDA toolkit)
         required: false
         default: 'dockerdl2018/llama-runner:cuda13'
+      pr_number:
+        description: 'PR number to build (leave empty for master)'
+        required: false
+        default: ''
 
-  push:
-    branches: main
+#  push:
+#    branches: main
     # only runs when the files below that actually affect the build change
-    paths:
-      - '.github/workflows/build-flow.yaml'
-  pull_request:
+#    paths:
+#      - '.github/workflows/build-flow.yaml'
+#  pull_request:
     # only runs when the files below that actually affect the build change
-    paths:
-      - '.github/workflows/build-flow.yaml'
+#    paths:
+#      - '.github/workflows/build-flow.yaml'
 
 # If multiple commits are pushed to a PR in quick succession, only the latest workflow run will execute.
 # The previous two runs get cancelled automatically, saving CI resources and reducing feedback time.
@@ -164,6 +168,13 @@ jobs:
           repository: ggml-org/llama.cpp
           ref: master
           path: llama_repo
+
+      - name: Checkout PR
+        if: ${{ github.event.inputs.pr_number != '' }}
+        run: |
+          cd llama_repo
+          git fetch origin pull/${{ github.event.inputs.pr_number }}/head:pr-${{ github.event.inputs.pr_number }}
+          git switch pr-${{ github.event.inputs.pr_number }}
 
       - name: Setup Ccache
         uses: ggml-org/ccache-action@v1.2.21
