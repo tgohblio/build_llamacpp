@@ -39,7 +39,7 @@ jobs:
       image: ${{ github.event.inputs.container_image || 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04' }}
 
     steps:
-      - name: Install dependencies
+      - name: Install build dependencies
         env:
           DEBIAN_FRONTEND: noninteractive
         run: |
@@ -62,7 +62,7 @@ jobs:
             ccache \
             file
 
-      - name: Checkout
+      - name: Checkout llama.cpp repository
         uses: actions/checkout@v7
         with:
           repository: ggml-org/llama.cpp
@@ -75,6 +75,12 @@ jobs:
           cd llama_repo
           git fetch origin pull/${{ github.event.inputs.pr_number }}/head:pr-${{ github.event.inputs.pr_number }}
           git switch pr-${{ github.event.inputs.pr_number }}
+
+      - name: Setup Ccache
+        uses: ggml-org/ccache-action@v1.2.21
+        with:
+          key: cuda13-ubuntu-${{ github.run_id }}
+          evict-old-files: 1d
 
       - name: Build llama.cpp
         run: |
