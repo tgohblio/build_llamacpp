@@ -40,6 +40,8 @@ jobs:
 
     steps:
       - name: Install dependencies
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
           echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
           echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
