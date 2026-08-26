@@ -1,29 +1,57 @@
 # build_llamacpp
 Build a custom llamacpp (server and cli) using Github Runner
 
-## What This Workflow Does
+This repository provides two GitHub Actions workflows that compile `llama.cpp`
+with CUDA support on a CPU-only machine. Both produce the same artifacts
+(`llama-server`, `llama-cli`, `llama-quantize`) and accept the same manual
+dispatch inputs for `cuda_architectures` and an optional `pr_number` to build
+from a pull request instead of master.
 
-A GitHub-hosted controller (`ubuntu-24.04`) calls the Runpod REST v2 API to:
+## Workflows
 
-1. Query the CPU catalog and select a flavor that provides the configured vCPU
-	count and RAM.
-2. Create a CPU-only pod with the configured resources and container image.
-3. Boot it with a self-hosted GitHub Actions runner. Creating the pod starts it automatically.
-4. Run the build on that pod with `runs-on: [self-hosted, runpod]`.
-5. Terminate the pod with REST v2 once the artifacts are uploaded or the build
-	fails.
+### `ghr-build` — GitHub-Hosted Runner
 
-### CUDA-Enabled Build on a CPU Instance
+[`.github/workflows/ghr-build.yaml`](.github/workflows/ghr-build.yaml)
+
+Runs entirely on a GitHub-hosted `ubuntu-24.04` runner inside an
+`nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04` container. The workflow:
+
+1. Installs build dependencies (`cmake`, `ninja-build`, `ccache`, etc.) inside
+   the container.
+2. Checks out `ggml-org/llama.cpp` (master, or a specific PR).
+3. Configures and builds with `GGML_CUDA=ON` using Ninja.
+4. Strips debug symbols and uploads the binaries as artifacts.
+
+No external infrastructure is required — the CUDA toolkit is provided by the
+container image. The workflow also triggers on pushes and PRs that modify its
+own file.
+
+### `build-flow` — Runpod Self-Hosted Runner
+
+[`.github/workflows/build-flow.yaml`](.github/workflows/build-flow.yaml)
+
+Uses a three-job pipeline (provision → build → teardown) that spins up a
+Runpod CPU pod as a self-hosted GitHub Actions runner:
+
+1. **Provision** — A GitHub-hosted controller calls the Runpod REST v2 API to
+   query the CPU catalog, select a flavor matching the configured vCPU/RAM,
+   create a CPU-only pod, and wait for the runner to register.
+2. **Build** — Runs on the Runpod pod (`runs-on: [self-hosted, runpod]`).
+   Checks out `ggml-org/llama.cpp`, configures with `GGML_CUDA=ON`, builds
+   with Ninja, strips the binaries, and uploads artifacts.
+3. **Teardown** — Terminates the pod via REST v2 regardless of build outcome.
 
 The pod image (`RUNPOD_DOCKER_IMAGE`) is a custom image built from
-`nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04`, with the GitHub Actions runner
+`nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04` with the GitHub Actions runner
 layered on top. See [`self_runner/Dockerfile`](self_runner/Dockerfile) and
 [`self_runner/runner-entrypoint.sh`](self_runner/runner-entrypoint.sh).
 
-Because the CUDA toolkit and cuDNN are already included, compiling `llama.cpp`
-with `GGML_CUDA=ON` requires no GPU and no runtime CUDA installation. Only
-`nvcc` is needed during compilation, and it is already present. The produced
-binaries require a GPU only at runtime.
+### CUDA-Enabled Build on a CPU Instance
+
+Because the CUDA toolkit and cuDNN are already included in both container
+images, compiling `llama.cpp` with `GGML_CUDA=ON` requires no GPU and no
+runtime CUDA installation. Only `nvcc` is needed during compilation, and it is
+already present. The produced binaries require a GPU only at runtime.
 
 ## One-Time Setup
 
@@ -39,11 +67,14 @@ image with the `runpod_image` manual-dispatch input when needed.
 
 ## Prerequisites
 
-- Set `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables**.
-- Set `PERSONAL_ACCESS_TOKEN` in GitHub for permission to create the temporary
+`ghr-build` works out of the box on any repository with GitHub Actions enabled.
+
+`build-flow` additionally requires:
+
+- `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables**.
+- `PERSONAL_ACCESS_TOKEN` in GitHub for permission to create the temporary
   repository runner registration token.
-- Allow this repository's workflows to use self-hosted runners. In **Settings >
-	Actions > General**, the self-hosted runner policy must permit repository runners.
+- Self-hosted runners allowed in **Settings > Actions > General**.
 
 ## Runpod Configuration
 

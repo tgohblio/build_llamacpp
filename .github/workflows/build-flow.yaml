@@ -37,7 +37,7 @@ env:
   RUNPOD_DOCKER_IMAGE: "${{ github.event.inputs.runpod_image || 'dockerdl2018/llama-runner:cuda13' }}"
   RUNPOD_VCPU_COUNT: 8
   RUNPOD_RAM_GB: 16
-  RUNPOD_DISK_GB: 80
+  RUNPOD_DISK_GB: 20
   RUNPOD_SSH_PORT: 22
   RUNPOD_SSH_ENABLED: false
 
