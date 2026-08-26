@@ -84,7 +84,7 @@ The following workflow-level environment variables define the pod resources:
 | --- | ---: | --- |
 | `RUNPOD_VCPU_COUNT` | `8` | Number of vCPUs |
 | `RUNPOD_RAM_GB` | `16` | Required RAM in GB |
-| `RUNPOD_DISK_GB` | `80` | Container disk in GB |
+| `RUNPOD_DISK_GB` | `20` | Container disk in GB |
 | `RUNPOD_SSH_PORT` | `22` | Published SSH TCP port |
 | `RUNPOD_SSH_ENABLED` | `false` | Whether SSH is provisioned and published |
 | `RUNPOD_DOCKER_IMAGE` | `dockerdl2018/llama-runner:cuda13` | Runner image |
@@ -96,6 +96,6 @@ key and the selected image must support Runpod's SSH startup convention.
 
 ## Resource Notes
 
-- The default pod uses 8 vCPUs, 16 GB RAM, and an 80 GB container disk.
+- The default pod uses 8 vCPUs, 16 GB RAM, and an 20 GB container disk.
 - The workflow builds on CPU because the CUDA toolkit is baked into the image;
   the resulting binaries require a GPU only at runtime.
