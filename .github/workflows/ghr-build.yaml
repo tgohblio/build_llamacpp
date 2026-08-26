@@ -10,7 +10,7 @@ on:
       container_image:
         description: Container image (CUDA toolkit + build tools)
         required: false
-        default: 'dockerdl2018/llama-runner:cuda13'
+        default: 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04'
       pr_number:
         description: 'PR number to build (leave empty for master)'
         required: false
@@ -36,9 +36,30 @@ jobs:
     name: Build llama-server
     runs-on: ubuntu-24.04
     container:
-      image: ${{ github.event.inputs.container_image || 'dockerdl2018/llama-runner:cuda13' }}
+      image: ${{ github.event.inputs.container_image || 'nvidia/cuda:13.0.2-cudnn-devel-ubuntu24.04' }}
 
     steps:
+      - name: Install dependencies
+        run: |
+          echo "/usr/local/cuda/bin" >> "$GITHUB_PATH"
+          echo "LD_LIBRARY_PATH=/usr/local/cuda/lib64:${LD_LIBRARY_PATH:-}" >> "$GITHUB_ENV"
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            cmake \
+            ninja-build \
+            git \
+            curl \
+            ca-certificates \
+            python3-pip \
+            libssl-dev \
+            libzstd-dev \
+            libbz2-dev \
+            liblzma-dev \
+            libcurl4-openssl-dev \
+            ccache \
+            file
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
