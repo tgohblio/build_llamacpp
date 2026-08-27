@@ -71,10 +71,11 @@ image with the `runpod_image` manual-dispatch input when needed.
 
 `build-flow` additionally requires:
 
-- `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables > Secrets**.
-- A **GitHub App** with the *Administration: Read & write* repository
-  permission, installed on this repository. Store `APP_CLIENT_ID` as a
-  repository **variable** and `APP_PRIVATE_KEY` as a repository **secret**.
+- `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables > Actions**.
+- A **GitHub App** with **Permissions > Repository permissions > Administration: Read & write**
+  setup from developer's settings page. Store `APP_CLIENT_ID` as a repository **variable** and 
+  `APP_PRIVATE_KEY` as a repository **secret**.
+  Refer how to setup here: [Making authenticated API requests with a GitHub App.](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow) 
 - Self-hosted runners allowed in **Settings > Actions > General**.
 
 ## Runpod Configuration
