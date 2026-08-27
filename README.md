@@ -71,9 +71,10 @@ image with the `runpod_image` manual-dispatch input when needed.
 
 `build-flow` additionally requires:
 
-- `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables**.
-- `PERSONAL_ACCESS_TOKEN` in GitHub for permission to create the temporary
-  repository runner registration token.
+- `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables > Secrets**.
+- A **GitHub App** with the *Administration: Read & write* repository
+  permission, installed on this repository. Store `APP_CLIENT_ID` as a
+  repository **variable** and `APP_PRIVATE_KEY` as a repository **secret**.
 - Self-hosted runners allowed in **Settings > Actions > General**.
 
 ## Runpod Configuration
