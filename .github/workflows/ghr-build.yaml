@@ -6,7 +6,7 @@ on:
       cuda_architectures:
         description: CUDA architectures
         required: false
-        default: 80;86;89;90;120a
+        default: 80;86;89;90;100;120a
       container_image:
         description: Container image (CUDA toolkit + build tools)
         required: false
@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80;86;89;90;120a' }}
+  CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80;86;89;90;100;120a' }}
 
 jobs:
   build:

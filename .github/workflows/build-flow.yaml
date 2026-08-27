@@ -6,7 +6,7 @@ on:
       cuda_architectures:
         description: CUDA architectures
         required: false
-        default: 80;86;89;90;120a
+        default: 80;86;89;90;100;120a
       runpod_image:
         description: Container image for the pod (contains the GH runner + CUDA toolkit)
         required: false
@@ -33,7 +33,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80;86;89;90;120a' }}
+  CMAKE_CUDA_ARCHITECTURES: ${{ github.event.inputs.cuda_architectures || '80;86;89;90;100;120a' }}
   RUNPOD_DOCKER_IMAGE: "${{ github.event.inputs.runpod_image || 'dockerdl2018/llama-runner:cuda13' }}"
   RUNPOD_VCPU_COUNT: 8
   RUNPOD_RAM_GB: 16
