@@ -5,8 +5,8 @@
 # in, so the workflow does NOT need to "Install CUDA toolkit" at runtime.
 #
 # Build & push ONCE (replace <your-registry> with your Docker Hub / GHCR namespace):
-#   docker build -f self_runner/Dockerfile -t <your-registry>/llama-runner:cuda13 .
-#   docker push <your-registry>/llama-runner:cuda13
+#   docker build -f self_runner/Dockerfile -t <your-registry>/llama-builder:cuda13 .
+#   docker push <your-registry>/llama-builder:cuda13
 #
 # Then point the workflow at it via RUNPOD_DOCKER_IMAGE
 # (or the runpod_image workflow_dispatch input).

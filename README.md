@@ -58,11 +58,11 @@ already present. The produced binaries require a GPU only at runtime.
 Build and push the runner image:
 
 ```sh
-docker build -f self_runner/Dockerfile -t dockerdl2018/llama-runner:cuda13 ./self_runner
-docker push dockerdl2018/llama-runner:cuda13
+docker build -f self_runner/Dockerfile -t dockerdl2018/llama-builder:cuda13 ./self_runner
+docker push dockerdl2018/llama-builder:cuda13
 ```
 
-The workflow uses `dockerdl2018/llama-runner:cuda13` by default. Override the
+The workflow uses `dockerdl2018/llama-builder:cuda13` by default. Override the
 image with the `runpod_image` manual-dispatch input when needed.
 
 ## Prerequisites
@@ -89,7 +89,7 @@ The following workflow-level environment variables define the pod resources:
 | `RUNPOD_DISK_GB` | `20` | Container disk in GB |
 | `RUNPOD_SSH_PORT` | `22` | Published SSH TCP port |
 | `RUNPOD_SSH_ENABLED` | `false` | Whether SSH is provisioned and published |
-| `RUNPOD_DOCKER_IMAGE` | `dockerdl2018/llama-runner:cuda13` | Runner image |
+| `RUNPOD_DOCKER_IMAGE` | `dockerdl2018/llama-builder:cuda13` | Runner image |
 
 RAM is derived by Runpod from the selected CPU flavor. The workflow fails
 before pod creation if no catalog flavor matches both `RUNPOD_VCPU_COUNT` and
