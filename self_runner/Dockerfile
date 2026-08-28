@@ -28,7 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && tar xzf r.tgz && rm r.tgz \
     && ./bin/installdependencies.sh
 
-COPY runner-entrypoint.sh /runner/runner-entrypoint.sh
+COPY self_runner/runner-entrypoint.sh /runner/runner-entrypoint.sh
 RUN chmod +x /runner/runner-entrypoint.sh \
     && useradd --uid 1001 --create-home --user-group --shell /bin/bash runner \
     && chown -R runner:runner /runner
