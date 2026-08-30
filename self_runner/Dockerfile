@@ -1,4 +1,4 @@
-# Custom GitHub Actions self-hosted runner image for Runpod CPU pods.
+### Docker image for building llama.cpp using RunPod pods ###
 #
 # Built FROM the CUDA 13.0.2 + cuDNN devel image so llama.cpp can be compiled
 # with GGML_CUDA=ON on a GPU-less CPU pod -- the CUDA toolkit is already baked
