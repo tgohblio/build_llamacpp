@@ -1,3 +1,5 @@
+# Builds llama.cpp on a GitHub-hosted runner inside a CUDA container.
+# Compiles llama-server, llama-cli, and llama-quantize, then uploads them as artifacts.
 name: Build llama (Github Runner)
 
 on:
@@ -102,6 +104,10 @@ jobs:
           cmake --build build -j"$(nproc)"
 
           strip build/bin/llama-server build/bin/llama-cli build/bin/llama-quantize || true
+
+      - name: Print run ID
+        run: |
+          echo "Uploading artifacts from run_id: ${{ github.run_id }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7

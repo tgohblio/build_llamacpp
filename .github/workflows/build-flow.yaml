@@ -1,3 +1,5 @@
+# Builds llama.cpp on a Runpod CPU pod provisioned as an ephemeral self-hosted runner.
+# Spins up the pod, compiles with CUDA, uploads artifacts, then tears down the pod.
 name: Build llama (Runpod)
 
 on:
@@ -210,6 +212,10 @@ jobs:
 
           # Strip debug symbols directly in build output directory
           strip build/bin/llama-server build/bin/llama-cli build/bin/llama-quantize || true
+
+      - name: Print run ID
+        run: |
+          echo "Uploading artifacts from run_id: ${{ github.run_id }}"
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v7
