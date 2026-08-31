@@ -1,8 +1,9 @@
 # build_llamacpp
 Build a custom llamacpp (server and cli) using Github Runner
 
-This repository provides two GitHub Actions workflows that compile `llama.cpp`
-with CUDA support on a CPU-only machine. Both produce the same artifacts
+This repository provides GitHub Actions workflows that compile `llama.cpp`
+with CUDA support on a CPU-only machine and package the result into a
+Runpod serverless Docker image. Both build workflows produce the same artifacts
 (`llama-server`, `llama-cli`, `llama-quantize`) and accept the same manual
 dispatch inputs for `cuda_architectures` and an optional `pr_number` to build
 from a pull request instead of master.
@@ -53,6 +54,36 @@ images, compiling `llama.cpp` with `GGML_CUDA=ON` requires no GPU and no
 runtime CUDA installation. Only `nvcc` is needed during compilation, and it is
 already present. The produced binaries require a GPU only at runtime.
 
+### `ghr-build-deploy-image` — Runpod Serverless Deployment
+
+[`.github/workflows/ghr-build-deploy-image.yaml`](.github/workflows/ghr-build-deploy-image.yaml)
+
+Builds and pushes the Runpod serverless Docker image. Triggered automatically
+after a successful `ghr-build` or `build-flow` run, or manually with a run ID.
+The workflow:
+
+1. Downloads the `llama_apps` artifact from the specified (or triggering) build
+   workflow run.
+2. Bundles `llama-server` with the Runpod handler scripts from
+   [`llama_runpod/`](llama_runpod/).
+3. Builds and pushes the Docker image to Docker Hub.
+
+The resulting image starts `llama-server` with DFlash 2 speculative decoding
+and runs a Runpod serverless handler that forwards requests to llama-server's
+OpenAI-compatible API. Runtime configuration (model, context size, etc.) is
+set via environment variables on the Runpod endpoint.
+
+| Env Variable | Required | Default | Description |
+| --- | --- | --- | --- |
+| `MODEL` | yes | — | HF model, e.g. `ggml-org/Qwen3.8-27B-GGUF:Q4_K_M` |
+| `DRAFT_MODEL` | yes | — | HF draft model for speculative decoding |
+| `N_GPU_LAYERS` | no | `99` | GPU layers to offload |
+| `CTX_SIZE` | no | `8192` | Context size |
+| `PARALLEL` | no | `1` | Number of parallel sequences |
+| `PORT` | no | `8080` | llama-server listen port |
+| `SPEC_TYPE` | no | `draft-dflash` | Speculative decoding type |
+| `SPEC_DRAFT_N_MAX` | no | `7` | Max draft tokens per step |
+
 ## One-Time Setup
 
 Build and push the runner image:
@@ -78,7 +109,13 @@ image with the `runpod_image` manual-dispatch input when needed.
   Refer how to setup here: [Making authenticated API requests with a GitHub App.](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow) 
 - Self-hosted runners allowed in **Settings > Actions > General**.
 
-## Runpod Configuration
+`ghr-build-deploy-image` additionally requires:
+
+- `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as repository **secrets** for pushing images.
+- The same `APP_CLIENT_ID` / `APP_PRIVATE_KEY` GitHub App credentials (used to
+  download artifacts from other workflow runs).
+
+## Runpod Configuration (llama build)
 
 The following workflow-level environment variables define the pod resources:
 
@@ -101,3 +138,7 @@ key and the selected image must support Runpod's SSH startup convention.
 - The default pod uses 8 vCPUs, 16 GB RAM, and an 20 GB container disk.
 - The workflow builds on CPU because the CUDA toolkit is baked into the image;
   the resulting binaries require a GPU only at runtime.
+
+## Runpod Configuration (llama serving)
+
+TBD
