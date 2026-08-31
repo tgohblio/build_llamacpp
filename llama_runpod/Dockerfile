@@ -10,6 +10,8 @@
 #   CTX_SIZE       - default 8192
 #   PARALLEL       - default 1
 #   PORT           - default 8080
+#   SPEC_TYPE      - default draft-dflash
+#   SPEC_DRAFT_N_MAX - default 7
 #
 
 FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04

@@ -9,6 +9,8 @@
 #   CTX_SIZE         - default 8192
 #   PARALLEL         - default 1
 #   PORT             - default 8080
+#   SPEC_TYPE        - default draft-dflash
+#   SPEC_DRAFT_N_MAX - default 7
 
 set -e
 
@@ -19,6 +21,8 @@ N_GPU_LAYERS=${N_GPU_LAYERS:-99}
 CTX_SIZE=${CTX_SIZE:-8192}
 PARALLEL=${PARALLEL:-1}
 PORT=${PORT:-8080}
+SPEC_TYPE=${SPEC_TYPE:-draft-dflash}
+SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX:-7}
 
 # Cache dir for HF downloads (serverless provides ephemeral container disk)
 export HF_HOME=${HF_HOME:-/runpod-volume/huggingface-cache}
@@ -26,14 +30,15 @@ mkdir -p "$HF_HOME"
 
 echo "[start_llama] MODEL=${MODEL} DRAFT_MODEL=${DRAFT_MODEL}"
 echo "[start_llama] N_GPU_LAYERS=${N_GPU_LAYERS} CTX_SIZE=${CTX_SIZE} PARALLEL=${PARALLEL} PORT=${PORT}"
+echo "[start_llama] SPEC_TYPE=${SPEC_TYPE} SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX}"
 
 # Launch llama-server with DFlash 2 spec decoding in the background.
 # Logs go to /tmp/llama-server.log for debugging.
 /app/llama-server \
     -hf "${MODEL}" \
     -hfd "${DRAFT_MODEL}" \
-    --spec-type draft-dflash \
-    --spec-draft-n-max 7 \
+    --spec-type "${SPEC_TYPE}" \
+    --spec-draft-n-max "${SPEC_DRAFT_N_MAX}" \
     --host 0.0.0.0 \
     --port "${PORT}" \
     -ngl "${N_GPU_LAYERS}" \
