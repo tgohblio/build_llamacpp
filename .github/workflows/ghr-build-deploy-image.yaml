@@ -46,10 +46,11 @@ jobs:
       - name: Download build artifacts
         uses: actions/download-artifact@v7
         with:
-          name: ${{ inputs.artifact_name || 'llama_apps' }}
+          pattern: ${{ inputs.artifact_name || 'llama_apps*' }}
           path: staging
           run-id: ${{ steps.resolve-run.outputs.run_id }}
           github-token: ${{ steps.app-token.outputs.token }}
+          merge-multiple: true
 
       - name: Prepare application files
         run: |
