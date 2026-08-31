@@ -73,4 +73,4 @@ jobs:
           file: llama_runpod/Dockerfile
           push: true
           platforms: linux/amd64
-          tags: dockerdl2018/llama-runner:latest
+          tags: dockerdl2018/llama-runpod:latest

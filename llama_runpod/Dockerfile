@@ -1,7 +1,7 @@
 # Runpod serverless worker for llama.cpp with DFlash 2 speculative decoding.
 #
 # Build:
-#   docker build --platform linux/amd64 -t <your registry>/llama-runner:latest .
+#   docker build --platform linux/amd64 -t <your registry>/llama-runpod:latest .
 #
 # Runtime env vars (set via Runpod endpoint config or docker run -e):
 #   MODEL          - (required) HF model, e.g. "ggml-org/Qwen3.8-27B-GGUF:Q4_K_M"
