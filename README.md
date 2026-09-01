@@ -66,7 +66,8 @@ The workflow:
    workflow run.
 2. Bundles `llama-server` with the Runpod handler scripts from
    [`llama_runpod/`](llama_runpod/).
-3. Builds and pushes the Docker image to Docker Hub.
+3. Builds and pushes the Docker image to GitHub Container Registry (GHCR) as
+   `ghcr.io/tgohblio/llama-runpod:latest`.
 
 The resulting image starts `llama-server` with DFlash 2 speculative decoding
 and runs a Runpod serverless handler that forwards requests to llama-server's
@@ -110,9 +111,8 @@ image with the `runpod_image` manual-dispatch input when needed.
 
 `ghr-build-deploy-image` additionally requires:
 
-- `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as repository **secrets** for pushing images.
-- The same `APP_CLIENT_ID` / `APP_PRIVATE_KEY` GitHub App credentials (used to
-  download artifacts from other workflow runs).
+- GitHub Actions must be allowed to create and write packages for the repository; the workflow uses its built-in `GITHUB_TOKEN` to push to GHCR.
+- The same `APP_CLIENT_ID` / `APP_PRIVATE_KEY` GitHub App credentials (used to download artifacts from other workflow runs).
 
 ### Github App Permissions
 
