@@ -103,9 +103,8 @@ image with the `runpod_image` manual-dispatch input when needed.
 `build-flow` additionally requires:
 
 - `RUNPOD_API_KEY` in the repository's **Settings > Secrets and variables > Actions**.
-- A **GitHub App** with **Permissions > Repository permissions > Administration: Read & write**
-  setup from developer's settings page. Store `APP_CLIENT_ID` as a repository **variable** and 
-  `APP_PRIVATE_KEY` as a repository **secret**.
+- A **GitHub App** with permissions stated in [Github App Permissions](#github-app-permissions) section below.
+  Store `APP_CLIENT_ID` as a repository **variable** and `APP_PRIVATE_KEY` as a repository **secret**.\
   Refer how to setup here: [Making authenticated API requests with a GitHub App.](https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/making-authenticated-api-requests-with-a-github-app-in-a-github-actions-workflow) 
 - Self-hosted runners allowed in **Settings > Actions > General**.
 
@@ -114,6 +113,21 @@ image with the `runpod_image` manual-dispatch input when needed.
 - `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` as repository **secrets** for pushing images.
 - The same `APP_CLIENT_ID` / `APP_PRIVATE_KEY` GitHub App credentials (used to
   download artifacts from other workflow runs).
+
+### Github App Permissions
+
+| Workflow | Administration | Actions | Contents | Why |
+| --- | --- | --- | --- | --- |
+| `ghr-build.yaml` | ❌No | ❌No | ❌No | Builds code and uploads artifacts using the default `GITHUB_TOKEN`. No GitHub App needed. |
+| `ghr-build-deploy-image.yaml` | ❌No | ✅Read & write | ✅Read | Downloads artifacts from other workflow runs and builds/pushes Docker images. |
+| `build-flow.yaml` | ✅Write | ❌No | ✅Read | Creates self-hosted runners (requires admin API access) and checks out the repository. |
+
+#### Quick Setup Checklist
+
+✅ Administration - Read and write\
+✅ Actions - Read and write\
+✅ Contents - Read only\
+This configuration will satisfy all three workflows. You can safely leave other permissions disabled.
 
 ## Runpod Configuration (llama build)
 
