@@ -9,7 +9,7 @@
 #   CTX_SIZE         - default 8192
 #   PARALLEL         - default 1
 #   PORT             - default 8080
-#   SPEC_TYPE        - default draft-dflash
+#   SPEC_TYPE        - default (empty) (if enabled,  'draft-dflash')
 #   SPEC_DRAFT_N_MAX - default 7
 
 set -e
