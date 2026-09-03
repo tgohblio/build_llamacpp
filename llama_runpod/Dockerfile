@@ -3,16 +3,6 @@
 # Build:
 #   docker build --platform linux/amd64 -t <your registry>/llama-runpod:latest .
 #
-# Runtime env vars (set via Runpod endpoint config or docker run -e):
-#   MODEL          - (required) HF model, e.g. "ggml-org/Qwen3.8-27B-GGUF:Q4_K_M"
-#   DRAFT_MODEL    - (required) HF draft model for spec decoding
-#   N_GPU_LAYERS   - default 99
-#   CTX_SIZE       - default 8192
-#   PARALLEL       - default 1
-#   PORT           - default 8080
-#   SPEC_TYPE      - default draft-dflash
-#   SPEC_DRAFT_N_MAX - default 7
-#
 
 FROM nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
 
@@ -49,7 +39,7 @@ WORKDIR /app
 # Github action will put the python and bash scripts into the staging folder
 COPY staging/ .
 
-RUN chmod +x /app/start_llama.sh
+RUN chmod +x /app/start_llama.sh /app/llama-server
 
 # start_llama.sh launches llama-server, then runs the handler
 ENTRYPOINT ["/app/start_llama.sh"]
