@@ -21,7 +21,9 @@ N_GPU_LAYERS=${N_GPU_LAYERS:-99}
 CTX_SIZE=${CTX_SIZE:-8192}
 PARALLEL=${PARALLEL:-1}
 PORT=${PORT:-8080}
-SPEC_TYPE=${SPEC_TYPE:-draft-dflash}
+# SPEC_TYPE is optional. When unset or empty, --spec-type and
+# --spec-draft-n-max are omitted from the llama-server invocation entirely.
+SPEC_TYPE=${SPEC_TYPE:-}
 SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX:-7}
 
 # Cache dir for HF downloads (serverless provides ephemeral container disk)
@@ -30,15 +32,19 @@ mkdir -p "$HF_HOME"
 
 echo "[start_llama] MODEL=${MODEL} DRAFT_MODEL=${DRAFT_MODEL}"
 echo "[start_llama] N_GPU_LAYERS=${N_GPU_LAYERS} CTX_SIZE=${CTX_SIZE} PARALLEL=${PARALLEL} PORT=${PORT}"
-echo "[start_llama] SPEC_TYPE=${SPEC_TYPE} SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX}"
+echo "[start_llama] SPEC_TYPE='${SPEC_TYPE}' SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX}"
 
-# Launch llama-server with DFlash 2 spec decoding in the background.
-# Logs go to /tmp/llama-server.log for debugging.
+# Build optional spec-decoding args; omit them entirely when SPEC_TYPE is unset.
+SPEC_ARGS=()
+if [ -n "${SPEC_TYPE}" ]; then
+    SPEC_ARGS=(--spec-type "${SPEC_TYPE}" --spec-draft-n-max "${SPEC_DRAFT_N_MAX}")
+fi
+
+# Launch llama-server in the background. Logs go to /tmp/llama-server.log.
 /app/llama-server \
     -hf "${MODEL}" \
     -hfd "${DRAFT_MODEL}" \
-    --spec-type "${SPEC_TYPE}" \
-    --spec-draft-n-max "${SPEC_DRAFT_N_MAX}" \
+    "${SPEC_ARGS[@]}" \
     --host 0.0.0.0 \
     --port "${PORT}" \
     -ngl "${N_GPU_LAYERS}" \
