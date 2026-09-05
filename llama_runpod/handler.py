@@ -41,13 +41,16 @@ def llama_generate(payload: dict) -> dict:
     elif "prompt" in payload:
         body["prompt"] = payload["prompt"]
 
-    for k in ("temperature", "max_tokens", "top_p", "stop", "stream", "frequency_penalty", "presence_penalty"):
+    for k in ("temperature", "max_tokens", "top_p", "top_k", "stop", "stream", "reasoning_effort", "presence_penalty"):
         if k in payload:
             body[k] = payload[k]
 
     # Defaults
     body.setdefault("temperature", 0.7)
     body.setdefault("max_tokens", 256)
+    body.setdefault("top_k", 20)
+    body.setdefault("min_p", 0.0)
+    body.setdefault("repetition_penalty", 1.0)
 
     # Long timeout: speculative decoding + first-call cold start can be slow
     timeout = int(os.environ.get("LLAMA_TIMEOUT", "300"))
