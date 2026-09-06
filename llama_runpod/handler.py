@@ -160,16 +160,16 @@ async def handler(job: dict) -> AsyncIterator[dict] | dict:
 
     err = _validate_input(job_input)
     if err is not None:
-        return {"error": err}
+        yield {"error": err}
+        return
 
     wants_stream = bool(job_input.get("stream"))
 
     if wants_stream:
         async for chunk in _stream_handler(job_input):
             yield chunk
-        return  # unreachable but explicit
-
-    return await _aggregate_handler(job_input)
+    else:
+        yield await _aggregate_handler(job_input)
 
 
 async def _stream_handler(job_input: dict) -> AsyncIterator[dict]:
@@ -206,26 +206,10 @@ async def _aggregate_handler(job_input: dict) -> dict:
     }
 
 
-# Health endpoint: /ping returns llama-server /health status
-def health_check() -> dict:
-    try:
-        r = requests.get(f"http://localhost:{os.environ.get('PORT', '8080')}/health", timeout=5)
-        r.raise_for_status()
-        return {"status": "healthy", "llama": r.json()}
-    except Exception as e:
-        return {"status": "unhealthy", "error": str(e)}
-
-
-# Custom /ping handler for runpod serverless health checks
-def _ping_handler(*args, **kwargs):
-    return health_check()
-
-
 # Start the Runpod serverless worker
 runpod.serverless.start(
     {
         "handler": handler,
-        "ping": _ping_handler,
         "return_aggregate_stream": True,
     }
 )
