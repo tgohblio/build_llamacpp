@@ -19,9 +19,9 @@ Job input shape (set as the `input` field in the Runpod API request body):
 }
 
 Streaming:
-  When `stream: true` is set in the job input, the handler is a generator
-  that yields llama-server's SSE chunks one by one. Each yielded value is
-  forwarded to the Runpod /stream endpoint as it is produced (no buffering).
+  When `stream: true` is set in the job input, the handler is an async
+  generator that yields llama-server's SSE chunks one by one. Each yielded
+  value is forwarded to the Runpod /stream endpoint as it is produced.
   `return_aggregate_stream: True` keeps /run and /runsync working — they
   return the assembled list at completion.
 
@@ -31,9 +31,9 @@ If "messages" is not provided, the handler returns an error.
 import os
 import time
 import json
-from typing import Iterator
+from typing import AsyncIterator
 
-import requests
+import aiohttp
 
 import runpod
 
@@ -47,11 +47,15 @@ DEFAULT_MAX_TOKENS = 256
 # first-call cold start can be slow.
 NON_STREAM_TIMEOUT = int(os.environ.get("LLAMA_TIMEOUT", "300"))
 
-# Per-request timeout for the stream POST. None = no read timeout; rely on
-# Runpod worker idle timeout. Long generations on big contexts can run for
-# tens of minutes.
+# Per-request timeout for the stream POST. Defaults to 600s; set to 0 to
+# disable (rely on Runpod worker idle timeout). Long generations on big
+# contexts can run for tens of minutes so we use a sensible default rather
+# than None (indefinite).
 STREAM_TIMEOUT_RAW = os.environ.get("LLAMA_STREAM_TIMEOUT", "").strip()
-STREAM_TIMEOUT: int | None = int(STREAM_TIMEOUT_RAW) if STREAM_TIMEOUT_RAW else None
+if STREAM_TIMEOUT_RAW:
+    STREAM_TIMEOUT: int | None = int(STREAM_TIMEOUT_RAW)
+else:
+    STREAM_TIMEOUT = 600  # 10 minutes default
 
 # Fields we forward to llama-server. Kept narrow to avoid passing unknowns.
 _FORWARD_FIELDS = (
@@ -94,19 +98,21 @@ def _validate_input(job_input: dict) -> str | None:
     return None
 
 
-def llama_generate(payload: dict) -> tuple[dict, float]:
+async def llama_generate(payload: dict) -> tuple[dict, float]:
     """Forward payload to llama-server. Returns (response_json, elapsed_seconds)."""
     url = LLAMA_URL
     body = _build_body(payload)
     t0 = time.time()
-    resp = requests.post(url, json=body, timeout=NON_STREAM_TIMEOUT)
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=body, timeout=aiohttp.ClientTimeout(total=NON_STREAM_TIMEOUT)) as resp:
+            resp.raise_for_status()
+            result = await resp.json()
     dt = time.time() - t0
-    resp.raise_for_status()
-    return resp.json(), dt
+    return result, dt
 
 
-def llama_stream(payload: dict) -> Iterator[dict]:
-    """Generator that proxies llama-server's SSE stream, one chunk per yield.
+async def llama_stream(payload: dict) -> AsyncIterator[dict]:
+    """Async generator that proxies llama-server's SSE stream, one chunk per yield.
 
     Yields the parsed JSON chunk dict as-is (preserving OpenAI delta shape,
     including `reasoning_content` for thinking models). Terminates on the
@@ -116,38 +122,39 @@ def llama_stream(payload: dict) -> Iterator[dict]:
     body = _build_body(payload)
     body["stream"] = True
 
-    # `requests` accepts `timeout=(connect, read)`; None disables the read
-    # timeout so long generations don't get killed mid-stream.
-    resp = requests.post(url, json=body, stream=True, timeout=(10, STREAM_TIMEOUT))
-    try:
-        resp.raise_for_status()
-    except requests.exceptions.HTTPError:
-        # Surface a clean error and stop — don't try to read a body that
-        # may be partial / not SSE.
-        raise
+    timeout = aiohttp.ClientTimeout(total=STREAM_TIMEOUT)
 
-    for raw in resp.iter_lines():
-        if not raw:
-            continue
-        if not raw.startswith(b"data: "):
-            continue
-        payload_bytes = raw[len(b"data: "):]
-        if payload_bytes == b"[DONE]":
-            break
-        try:
-            yield json.loads(payload_bytes)
-        except json.JSONDecodeError:
-            # Skip malformed lines rather than killing the whole stream;
-            # llama-server should never emit these but be defensive.
-            continue
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=body, timeout=timeout) as resp:
+            try:
+                resp.raise_for_status()
+            except aiohttp.ClientResponseError:
+                # Surface a clean error and stop — don't try to read a body that
+                # may be partial / not SSE.
+                raise
+
+            async for raw in resp.content:
+                raw = raw.decode("utf-8")
+                if not raw.strip():
+                    continue
+                if not raw.startswith("data: "):
+                    continue
+                payload_str = raw[len("data: "):].strip()
+                if payload_str == "[DONE]":
+                    break
+                try:
+                    yield json.loads(payload_str)
+                except json.JSONDecodeError:
+                    # Skip malformed lines rather than killing the whole stream.
+                    continue
 
 
-def handler(job: dict) -> Iterator[dict] | dict:
-    """Runpod job handler.
+async def handler(job: dict) -> AsyncIterator[dict] | dict:
+    """Runpod job handler — async generator when streaming, single dict otherwise.
 
-    Generator when `stream: true` is requested; single dict otherwise.
-    Each yield is wrapped by the Runpod SDK as `{"output": <value>}` on
-    the /stream endpoint.
+    The async generator shape is what makes `is_asyncgenfunction(handler)` return
+    True, which routes to `run_job_generator()` in the SDK. Each `yield` is
+    wrapped by the SDK as `{"output": <value>}` on the /stream endpoint.
     """
     job_input = job.get("input", {})
 
@@ -158,39 +165,37 @@ def handler(job: dict) -> Iterator[dict] | dict:
     wants_stream = bool(job_input.get("stream"))
 
     if wants_stream:
-        return _stream_handler(job_input)
-
-    return _aggregate_handler(job_input)
-
-
-def _stream_handler(job_input: dict) -> Iterator[dict]:
-    """Generator path: yield llama-server chunks, then a `done` sentinel."""
-    try:
-        for chunk in llama_stream(job_input):
+        async for chunk in _stream_handler(job_input):
             yield chunk
-    except requests.exceptions.RequestException as e:
-        # Yield a final error chunk so the caller sees the failure on
-        # /stream, then stop. The Runpod SDK won't buffer this — the
-        # caller receives it as the last frame.
+        return  # unreachable but explicit
+
+    return await _aggregate_handler(job_input)
+
+
+async def _stream_handler(job_input: dict) -> AsyncIterator[dict]:
+    """Async generator path: yield llama-server chunks, then a `done` sentinel."""
+    try:
+        async for chunk in llama_stream(job_input):
+            yield chunk
+    except aiohttp.ClientError as e:
         yield {
             "error": f"llama-server stream failed: {e}",
             "choices": [],
         }
-    except Exception as e:  # noqa: BLE001 — surface anything to the caller
+    except Exception as e:  # noqa: BLE001
         yield {
             "error": f"unexpected stream error: {e}",
             "choices": [],
         }
     finally:
-        # Deterministic end-of-stream signal for the consumer.
         yield {"done": True}
 
 
-def _aggregate_handler(job_input: dict) -> dict:
+async def _aggregate_handler(job_input: dict) -> dict:
     """Non-stream path: collect the full response, return one dict."""
     try:
-        result, elapsed = llama_generate(job_input)
-    except requests.exceptions.RequestException as e:
+        result, elapsed = await llama_generate(job_input)
+    except aiohttp.ClientError as e:
         return {"error": f"llama-server request failed: {e}"}
     except Exception as e:  # noqa: BLE001
         return {"error": f"unexpected error: {e}"}
