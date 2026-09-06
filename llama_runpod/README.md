@@ -34,7 +34,7 @@ the response as job output.
 
 ## Endpoints
 
-### Runpod serverless worker (port 8000 inside the container, managed by Runpod)
+### Runpod serverless worker (port 8080 exposed by container, managed by Runpod)
 
 | Operation | Behavior |
 | --- | --- |
