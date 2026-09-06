@@ -20,12 +20,13 @@ LABEL org.opencontainers.image.created=$BUILD_DATE \
     org.opencontainers.image.source=$IMAGE_SOURCE
 
 # Expose port so healthcheck and external requests work
-EXPOSE 8080
+EXPOSE 8080 8081
 
-# Install python, runpod for Runpod handler
+# Install python, runpod for Runpod handler, and FastAPI/uvicorn for the
+# OpenAI-compatible proxy sidecar (oai_proxy.py).
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 python3-pip libgomp1 curl ffmpeg unzip \
-    && pip3 install --break-system-packages --no-cache-dir "runpod>=1.12.0" requests \
+    && pip3 install --break-system-packages --no-cache-dir "runpod>=1.12.0" "fastapi>=0.115" "uvicorn[standard]>=0.30" requests \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /tmp/* /var/tmp/* \

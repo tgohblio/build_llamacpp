@@ -71,19 +71,12 @@ The workflow:
 
 The resulting image starts `llama-server` with DFlash 2 speculative decoding
 and runs a Runpod serverless handler that forwards requests to llama-server's
-OpenAI-compatible API. Runtime configuration (model, context size, etc.) is
-set via environment variables on the Runpod endpoint.
+OpenAI-compatible API.
 
-| Env Variable | Required | Default | Description |
-| --- | --- | --- | --- |
-| `MODEL` | yes | — | HF model, e.g. `ggml-org/Qwen3.8-27B-GGUF:Q4_K_M` |
-| `DRAFT_MODEL` | yes | — | HF draft model for speculative decoding |
-| `N_GPU_LAYERS` | no | `99` | GPU layers to offload |
-| `CTX_SIZE` | no | `8192` | Context size |
-| `PARALLEL` | no | `1` | Number of parallel sequences |
-| `PORT` | no | `8080` | llama-server listen port |
-| `SPEC_TYPE` | no | `draft-dflash` | Speculative decoding type |
-| `SPEC_DRAFT_N_MAX` | no | `7` | Max draft tokens per step |
+> Runtime configuration (model, context size, streaming, OAI sidecar, etc.)
+> is set via environment variables on the Runpod endpoint. See
+> [`llama_runpod/README.md`](llama_runpod/README.md#environment-variables)
+> for the full list.
 
 ## One-Time Setup
 
@@ -155,4 +148,6 @@ key and the selected image must support Runpod's SSH startup convention.
 
 ## Runpod Configuration (llama serving)
 
-TBD
+See [`llama_runpod/README.md`](llama_runpod/README.md) — covers the
+Runpod handler, the OpenAI-compatible sidecar, both streaming paths,
+job input shape, cold-start behavior, and the full env-var reference.
