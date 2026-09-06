@@ -48,8 +48,6 @@ the response as job output.
 
 ## Streaming
 
-## Streaming
-
 Set `stream: true` in the job input. The handler is a Python generator that
 yields llama-server SSE chunks one by one. Each yield is forwarded to the
 caller's `GET /stream/<id>` as it is produced — no buffering.
@@ -143,15 +141,19 @@ on subsequent boots.
 
 ```json
 {
-  "messages": [{"role": "user", "content": "..."}],
-  "temperature": 0.7,
-  "max_tokens": 256,
-  "top_p": 0.9,
-  "stop": ["..."],
-  "stream": false,
-  "stream_options": {"include_usage": true},
-  "frequency_penalty": 0.0,
-  "presence_penalty": 0.0
+  "input": {
+    {
+      "messages": [{"role": "user", "content": "..."}],
+      "temperature": 0.7,
+      "max_tokens": 256,
+      "top_p": 0.9,
+      "stop": ["..."],
+      "stream": false,
+      "stream_options": {"include_usage": true},
+      "frequency_penalty": 0.0,
+      "presence_penalty": 0.0
+    }
+  }
 }
 ```
 
@@ -162,44 +164,6 @@ silently dropped. `messages` is required.
 Defaults (`temperature=0.7`, `max_tokens=256`) are only applied on the
 **non-stream** path; for streaming, omit fields you don't want to set
 because llama-server treats an omitted `max_tokens` as "no limit".
-
----
-
-## Local development
-
-The handler has no llama-server dependency at import time, so you can
-smoke-test it with monkey-patched HTTP clients.
-
-```sh
-# Throwaway venv with the production deps
-uv venv /tmp/runpod-smoke --python 3.11
-VIRTUAL_ENV=/tmp/runpod-smoke uv pip install \
-    'runpod>=1.12.0' requests httpx
-```
-
-Notes for development:
-
-- `runpod.serverless.start({...})` runs at import time. Patch it to a
-  no-op before importing the handler, otherwise it tries to launch a
-  worker and exits with `WARN | test_input.json not found, exiting.`
-- `runpod`'s import chain pulls in `requests.Session`, `RequestException`,
-  and `ConnectionError`, so a stub `requests` module is not enough —
-  install the real package and monkey-patch only `post` / `get`.
-
----
-
-## Logs and debugging
-
-| Log file | Source |
-| --- | --- |
-| `/tmp/llama-server.log` | llama-server stdout/stderr |
-| stdout | Runpod worker (`python3 -u /app/handler.py`) |
-
-To peek at a running container:
-
-```sh
-runpodctl exec <pod-id> -- tail -f /tmp/llama-server.log
-```
 
 ---
 

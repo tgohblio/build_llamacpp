@@ -7,13 +7,15 @@ to llama-server's OpenAI-compatible /v1/chat/completions endpoint.
 
 Job input shape (set as the `input` field in the Runpod API request body):
 {
-    "messages": [{"role": "user", "content": "..."}],
-    "temperature": 0.7,
-    "max_tokens": 256,
-    "top_p": 0.9,
-    "stop": ["..."],
-    "stream": false,
-    "stream_options": {"include_usage": true}
+    "input": {
+        "messages": [{"role": "user", "content": "..."}],
+        "temperature": 0.7,
+        "max_tokens": 256,
+        "top_p": 0.9,
+        "stop": ["..."],
+        "stream": false,
+        "stream_options": {"include_usage": true}
+    }
 }
 
 Streaming:
