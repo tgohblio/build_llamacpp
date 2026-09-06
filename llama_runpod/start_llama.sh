@@ -9,8 +9,6 @@
 #   CTX_SIZE         - default 8192
 #   PARALLEL         - default 1
 #   PORT             - default 8080 (llama-server)
-#   OAI_PORT         - default 8081 (OpenAI-compatible proxy)
-#   OAI_ENABLED      - default 1 (set 0 to skip the proxy sidecar)
 #   SPEC_TYPE        - default (empty) (if enabled,  'draft-dflash')
 #   SPEC_DRAFT_N_MAX - default 7
 
@@ -23,8 +21,6 @@ N_GPU_LAYERS=${N_GPU_LAYERS:-99}
 CTX_SIZE=${CTX_SIZE:-8192}
 PARALLEL=${PARALLEL:-1}
 PORT=${PORT:-8080}
-OAI_PORT=${OAI_PORT:-8081}
-OAI_ENABLED=${OAI_ENABLED:-1}
 # SPEC_TYPE is optional. When unset or empty, --spec-type and
 # --spec-draft-n-max are omitted from the llama-server invocation entirely.
 SPEC_TYPE=${SPEC_TYPE:-}
@@ -36,7 +32,6 @@ mkdir -p "$HF_HOME"
 
 echo "[start_llama] MODEL=${MODEL} DRAFT_MODEL=${DRAFT_MODEL}"
 echo "[start_llama] N_GPU_LAYERS=${N_GPU_LAYERS} CTX_SIZE=${CTX_SIZE} PARALLEL=${PARALLEL} PORT=${PORT}"
-echo "[start_llama] OAI_ENABLED=${OAI_ENABLED} OAI_PORT=${OAI_PORT}"
 echo "[start_llama] SPEC_TYPE='${SPEC_TYPE}' SPEC_DRAFT_N_MAX=${SPEC_DRAFT_N_MAX}"
 
 # Build optional spec-decoding args; omit them entirely when SPEC_TYPE is unset.
@@ -84,44 +79,6 @@ if ! curl -fsS "http://localhost:${PORT}/health" >/dev/null 2>&1; then
     cat /tmp/llama-server.log
     exit 1
 fi
-# Launch the OpenAI-compatible proxy sidecar (uvicorn) if enabled. It
-# forwards /v1/chat/completions, /v1/completions, and /v1/models to
-# llama-server, with proper SSE framing for streaming. Logs to
-# /tmp/oai-proxy.log. We wait for /health to come up before proceeding.
-if [ "${OAI_ENABLED}" = "1" ]; then
-    echo "[start_llama] launching OAI proxy on port ${OAI_PORT}"
-    python3 -m uvicorn oai_proxy:app \
-        --host 0.0.0.0 \
-        --port "${OAI_PORT}" \
-        --log-level "${OAI_LOG_LEVEL:-info}" \
-        > /tmp/oai-proxy.log 2>&1 &
-
-    OAI_PID=$!
-    echo "[start_llama] oai-proxy pid=${OAI_PID}"
-
-    OAI_HEALTH_TIMEOUT=30
-    oai_elapsed=0
-    while [ $oai_elapsed -lt $OAI_HEALTH_TIMEOUT ]; do
-        if curl -fsS "http://localhost:${OAI_PORT}/health" >/dev/null 2>&1; then
-            echo "[start_llama] oai-proxy healthy after ${oai_elapsed}s"
-            break
-        fi
-        if ! kill -0 $OAI_PID 2>/dev/null; then
-            echo "[start_llama] oai-proxy died, dumping log:"
-            cat /tmp/oai-proxy.log
-            exit 1
-        fi
-        sleep 1
-        oai_elapsed=$((oai_elapsed + 1))
-    done
-
-    if ! curl -fsS "http://localhost:${OAI_PORT}/health" >/dev/null 2>&1; then
-        echo "[start_llama] oai-proxy failed to become healthy within ${OAI_HEALTH_TIMEOUT}s"
-        cat /tmp/oai-proxy.log
-        exit 1
-    fi
-fi
-
 
 echo "[start_llama] launching Runpod handler"
 exec python3 -u /app/handler.py

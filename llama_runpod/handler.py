@@ -2,12 +2,12 @@
 Runpod serverless handler for llama.cpp with DFlash 2 speculative decoding.
 
 llama-server is started by start_llama.sh before this script runs.
-This handler forwards Runpod job input to llama-server's OpenAI-compatible
-/v1/chat/completions endpoint and returns the response as job output.
+This handler receives jobs from the Runpod serverless API and forwards them
+to llama-server's OpenAI-compatible /v1/chat/completions endpoint.
 
-Expected job input shape (any subset is forwarded to llama-server):
+Job input shape (set as the `input` field in the Runpod API request body):
 {
-    "messages": [{"role": "user", "content": "..."}],  # OR "prompt"
+    "messages": [{"role": "user", "content": "..."}],
     "temperature": 0.7,
     "max_tokens": 256,
     "top_p": 0.9,
@@ -23,7 +23,7 @@ Streaming:
   `return_aggregate_stream: True` keeps /run and /runsync working — they
   return the assembled list at completion.
 
-If neither "messages" nor "prompt" is provided, the handler returns an error.
+If "messages" is not provided, the handler returns an error.
 """
 
 import os
@@ -36,7 +36,6 @@ import requests
 import runpod
 
 LLAMA_URL = f"http://localhost:{os.environ.get('PORT', '8080')}/v1/chat/completions"
-LLAMA_URL_COMPLETIONS = f"http://localhost:{os.environ.get('PORT', '8080')}/v1/completions"
 
 # Defaults for non-stream path
 DEFAULT_TEMPERATURE = 0.7
@@ -67,12 +66,7 @@ _FORWARD_FIELDS = (
 
 def _build_body(payload: dict) -> dict:
     """Translate a Runpod job input into a llama-server request body."""
-    has_messages = "messages" in payload
-    body: dict = {}
-    if has_messages:
-        body["messages"] = payload["messages"]
-    elif "prompt" in payload:
-        body["prompt"] = payload["prompt"]
+    body: dict = {"messages": payload["messages"]}
 
     for k in _FORWARD_FIELDS:
         if k in payload:
@@ -90,9 +84,9 @@ def _validate_input(job_input: dict) -> str | None:
     """Return an error string if the job input is malformed, else None."""
     if not isinstance(job_input, dict):
         return "input must be a JSON object"
-    if "messages" not in job_input and "prompt" not in job_input:
+    if "messages" not in job_input:
         return (
-            "input must contain 'messages' (list) or 'prompt' (string); "
+            "input must contain 'messages' (list); "
             "example: {\"messages\": [{\"role\": \"user\", \"content\": \"Hello\"}]}"
         )
     return None
@@ -100,7 +94,7 @@ def _validate_input(job_input: dict) -> str | None:
 
 def llama_generate(payload: dict) -> tuple[dict, float]:
     """Forward payload to llama-server. Returns (response_json, elapsed_seconds)."""
-    url = LLAMA_URL if "messages" in payload else LLAMA_URL_COMPLETIONS
+    url = LLAMA_URL
     body = _build_body(payload)
     t0 = time.time()
     resp = requests.post(url, json=body, timeout=NON_STREAM_TIMEOUT)
@@ -116,7 +110,7 @@ def llama_stream(payload: dict) -> Iterator[dict]:
     including `reasoning_content` for thinking models). Terminates on the
     `data: [DONE]` sentinel. Raises on connection / HTTP errors.
     """
-    url = LLAMA_URL if "messages" in payload else LLAMA_URL_COMPLETIONS
+    url = LLAMA_URL
     body = _build_body(payload)
     body["stream"] = True
 
