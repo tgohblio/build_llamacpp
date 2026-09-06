@@ -67,7 +67,8 @@ The workflow:
 2. Bundles `llama-server` with the Runpod handler scripts from
    [`llama_runpod/`](llama_runpod/).
 3. Builds and pushes the Docker image to GitHub Container Registry (GHCR) as
-   `ghcr.io/tgohblio/llama-runpod:latest`.
+   `ghcr.io/<owner>/llama-runpod:latest` (where `<owner>` is the GitHub user
+   or org that owns the repository running the workflow).
 
 The resulting image starts `llama-server` with DFlash 2 speculative decoding
 and runs a Runpod serverless handler that forwards requests to llama-server's
@@ -80,15 +81,23 @@ OpenAI-compatible API.
 
 ## One-Time Setup
 
-Build and push the runner image:
+Build and push the runner image to your own registry (the default
+`dockerdl2018/llama-builder:cuda13` is just a reference example — replace it
+with a registry namespace you own):
 
 ```sh
-docker build -f self_runner/Dockerfile -t dockerdl2018/llama-builder:cuda13 ./self_runner
-docker push dockerdl2018/llama-builder:cuda13
+docker build -f self_runner/Dockerfile -t <your-registry>/llama-builder:cuda13 ./self_runner
+docker push <your-registry>/llama-builder:cuda13
 ```
 
-The workflow uses `dockerdl2018/llama-builder:cuda13` by default. Override the
-image with the `runpod_image` manual-dispatch input when needed.
+The workflow defaults to `dockerdl2018/llama-builder:cuda13` as a reference.
+Forks/relocated repos should override the default in one of two ways:
+
+1. Set the `RUNPOD_RUNNER_IMAGE` repository **variable**
+   (`Settings > Secrets and variables > Actions > Variables`) to your image,
+   e.g. `<your-registry>/llama-builder:cuda13`. The workflow picks this up
+   automatically.
+2. Pass `runpod_image` on a manual dispatch run.
 
 ## Prerequisites
 
@@ -133,7 +142,7 @@ The following workflow-level environment variables define the pod resources:
 | `RUNPOD_DISK_GB` | `20` | Container disk in GB |
 | `RUNPOD_SSH_PORT` | `22` | Published SSH TCP port |
 | `RUNPOD_SSH_ENABLED` | `false` | Whether SSH is provisioned and published |
-| `RUNPOD_DOCKER_IMAGE` | `dockerdl2018/llama-builder:cuda13` | Runner image |
+| `RUNPOD_DOCKER_IMAGE` | `vars.RUNPOD_RUNNER_IMAGE` → `dockerdl2018/llama-builder:cuda13` | Runner image |
 
 RAM is derived by Runpod from the selected CPU flavor. The workflow fails
 before pod creation if no catalog flavor matches both `RUNPOD_VCPU_COUNT` and

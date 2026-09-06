@@ -6,7 +6,8 @@ OpenAI-compatible HTTP sidecar so OpenAI SDK clients can connect directly.
 
 The image is built by the
 [`ghr-build-deploy-image` workflow](../.github/workflows/ghr-build-deploy-image.yaml)
-and pushed to GHCR as `ghcr.io/tgohblio/llama-runpod:latest`.
+and pushed to GHCR as `ghcr.io/<owner>/llama-runpod:latest` (where `<owner>` is
+the GitHub user or org that owns the repository running the workflow).
 
 ---
 
