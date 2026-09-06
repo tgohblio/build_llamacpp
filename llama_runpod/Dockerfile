@@ -25,7 +25,7 @@ EXPOSE 8080
 # Install python, runpod for Runpod handler, and requests for HTTP calls.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends python3 python3-pip libgomp1 curl ffmpeg unzip \
-    && pip3 install --break-system-packages --no-cache-dir "runpod>=1.12.0" requests \
+    && pip3 install --break-system-packages --no-cache-dir "runpod>=1.12.0" "aiohttp>=3.11.0" requests \
     && apt-get autoremove -y \
     && apt-get clean -y \
     && rm -rf /tmp/* /var/tmp/* \
