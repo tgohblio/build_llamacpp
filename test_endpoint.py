@@ -16,7 +16,7 @@ Usage:
 
 Environment variables:
     RUNPOD_API_KEY     — your Runpod API key (required)
-    RUNPOD_ENDPOINT_ID — endpoint ID (default: 42ugsfdv52qy69)
+    RUNPOD_ENDPOINT_ID — your endpoint ID
 
 Requirements: runpod>=1.0.0
 """
@@ -35,18 +35,14 @@ from runpod.http_client import AsyncClientSession
 from runpod.endpoint.asyncio import Endpoint as AsyncEndpoint
 
 load_dotenv()
-
-DEFAULT_ENDPOINT_ID = "42ugsfdv52qy69"
-
+api_key = os.environ.get("RUNPOD_API_KEY")
+endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID")
 
 def get_endpoint() -> runpod.Endpoint:
     """Create a Runpod SDK endpoint object."""
-    api_key = os.environ.get("RUNPOD_API_KEY")
     if not api_key:
         raise ValueError("RUNPOD_API_KEY environment variable is required")
-    endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", DEFAULT_ENDPOINT_ID)
-    runpod.api_key = api_key
-    return runpod.Endpoint(endpoint_id)
+    return runpod.Endpoint(str(endpoint_id), api_key)
 
 
 def build_input(
@@ -61,6 +57,7 @@ def build_input(
         "temperature": temperature,
         "max_tokens": max_tokens,
         "stream": stream,
+        "reasoning_effort": "low"
     }
 
 
@@ -158,7 +155,6 @@ def run_async(
 
 
 def run_streaming(
-    endpoint: runpod.Endpoint,
     messages: list[dict],
     temperature: float,
     max_tokens: int,
@@ -175,23 +171,19 @@ def run_streaming(
         stream_timeout = int(os.environ.get("LLAMA_STREAM_TIMEOUT") or "120")
 
     asyncio.run(_run_streaming_async(
-        endpoint, messages, temperature, max_tokens, stream_timeout
+        messages, temperature, max_tokens, stream_timeout
     ))
 
 
 async def _run_streaming_async(
-    endpoint: runpod.Endpoint,
     messages: list[dict],
     temperature: float,
     max_tokens: int,
     stream_timeout: int | None,
 ) -> None:
     """Async implementation — uses aiohttp with 600s poll timeout instead of 10s."""
-    api_key = os.environ.get("RUNPOD_API_KEY")
-    endpoint_id = os.environ.get("RUNPOD_ENDPOINT_ID", DEFAULT_ENDPOINT_ID)
-
     async with AsyncClientSession() as session:
-        aio_endpoint = AsyncEndpoint(endpoint_id, session, api_key=api_key)
+        aio_endpoint = AsyncEndpoint(endpoint_id, session, api_key)
         job_input = build_input(messages, temperature, max_tokens, stream=True)
 
         print("--- Streaming response ---", file=sys.stderr)
@@ -282,7 +274,7 @@ def main() -> None:
     endpoint = get_endpoint()
 
     if args.stream:
-        run_streaming(endpoint, messages, args.temperature, args.max_tokens,
+        run_streaming(messages, args.temperature, args.max_tokens,
                        stream_timeout=args.stream_timeout)
     elif args.async_mode:
         run_async(endpoint, messages, args.temperature, args.max_tokens,
